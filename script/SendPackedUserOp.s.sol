@@ -6,15 +6,40 @@ import {HelperConfig} from "script/HelperConfig.s.sol";
 import {IEntryPoint} from "lib/account-abstraction/contracts/interfaces/IEntryPoint.sol";
 import {PackedUserOperation} from "lib/account-abstraction/contracts/interfaces/PackedUserOperation.sol";
 import {MessageHashUtils} from "@openzeppelin/contracts/utils/cryptography/MessageHashUtils.sol";
+import {IERC20} from "@openzeppelin/contracts/interfaces/IERC20.sol";
+import {MinimalAccount} from "src/ethereum/MinimalAccount.sol";
+import {DevOpsTools} from "lib/foundry-devops/src/DevOpsTools.sol";
 
 contract SendPackedUserOp is Script {
   using MessageHashUtils for bytes32;
 
-  function run() public {}
+  // Make sure you trust this user - don't run this on Mainnet!
+    address constant RANDOM_APPROVER = 0x9EA9b0cc1919def1A3CfAEF4F7A66eE3c36F86fC;
 
-  function generateSignedUserOperation(bytes memory callData, HelperConfig.NetworkConfig memory config) public view returns (PackedUserOperation memory) {
-    uint256 nonce = vm.getNonce(config.account);
-    PackedUserOperation memory userOp = _generateUnsignedUserOperation(callData, config.account, nonce);
+  function run() public {
+    // Setup
+        HelperConfig helperConfig = new HelperConfig();
+        address dest = helperConfig.getConfig().usdc; // USDC address
+        uint256 value = 0;
+        address minimalAccountAddress = DevOpsTools.get_most_recent_deployment("MinimalAccount", block.chainid);
+
+        bytes memory functionData = abi.encodeWithSelector(IERC20.approve.selector, RANDOM_APPROVER, 1e18);
+        bytes memory executeCalldata =
+            abi.encodeWithSelector(MinimalAccount.execute.selector, dest, value, functionData);
+        PackedUserOperation memory userOp =
+            generateSignedUserOperation(executeCalldata, helperConfig.getConfig(), minimalAccountAddress);
+        PackedUserOperation[] memory ops = new PackedUserOperation[](1);
+        ops[0] = userOp;
+
+        // Send transaction
+        vm.startBroadcast();
+        IEntryPoint(helperConfig.getConfig().entryPoint).handleOps(ops, payable(helperConfig.getConfig().account));
+        vm.stopBroadcast();
+  }
+
+  function generateSignedUserOperation(bytes memory callData, HelperConfig.NetworkConfig memory config, address minimalAccount) public view returns (PackedUserOperation memory) {
+    uint256 nonce = vm.getNonce(minimalAccount) - 1;
+    PackedUserOperation memory userOp = _generateUnsignedUserOperation(callData, minimalAccount, nonce);
 
     bytes32 userOpHash = IEntryPoint(config.entryPoint).getUserOpHash(userOp);
     bytes32 digest = userOpHash.toEthSignedMessageHash();

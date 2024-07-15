@@ -6,6 +6,7 @@ import {HelperConfig} from "script/HelperConfig.s.sol";
 import {MinimalAccount} from  "src/ethereum/MinimalAccount.sol";
 import {DeployMinimalAccount} from "script/DeployMinimalAccount.s.sol";
 import {SendPackedUserOp, PackedUserOperation} from "script/SendPackedUserOp.s.sol";
+import {SIG_VALIDATION_FAILED, SIG_VALIDATION_SUCCESS} from "lib/account-abstraction/contracts/core/Helpers.sol";
 import {IEntryPoint} from "lib/account-abstraction/contracts/interfaces/IEntryPoint.sol";
 import {ECDSA} from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import {ERC20Mock} from "@openzeppelin/contracts/mocks/token/ERC20Mock.sol";
@@ -85,25 +86,63 @@ contract MinimalAccountTest is Test {
 
     // tells the entryPoint contract to call the AA contract and make the above call
     bytes memory executeCallData = abi.encodeWithSelector(MinimalAccount.execute.selector, dest, value, functionData);
-    PackedUserOperation memory packedUserOp = sendPackedUserOp.generateSignedUserOperation(executeCallData, helperConfig.getConfig());
+    PackedUserOperation memory packedUserOp = sendPackedUserOp.generateSignedUserOperation(executeCallData, helperConfig.getConfig(), address(minimalAccount));
     bytes32 userOpHash = IEntryPoint(helperConfig.getConfig().entryPoint).getUserOpHash(packedUserOp);
     
     // Act
     address actualSigner = ECDSA.recover(userOpHash.toEthSignedMessageHash(), packedUserOp.signature);
-    console2.log("minimalaccount: ", minimalAccount.owner());
-    console2.log("actualSigner: ", actualSigner);
+   
     // Assert
     assertEq(actualSigner, minimalAccount.owner());
   }
 
   function testValidationOfUserOps() public {
     // Arrange
+    assertEq(usdc.balanceOf(address(minimalAccount)), 0);
 
+    // tells the AA contract to call the erc20 contract and mint
+    address dest =  address(usdc);
+    uint256 value = 0;
+    bytes memory functionData = abi.encodeWithSelector(ERC20Mock.mint.selector, address(minimalAccount), AMOUNT);
+
+    // tells the entryPoint contract to call the AA contract and make the above call
+    bytes memory executeCallData = abi.encodeWithSelector(MinimalAccount.execute.selector, dest, value, functionData);
+    PackedUserOperation memory packedUserOp = sendPackedUserOp.generateSignedUserOperation(executeCallData, helperConfig.getConfig(), address(minimalAccount));
+    bytes32 userOpHash = IEntryPoint(helperConfig.getConfig().entryPoint).getUserOpHash(packedUserOp);
 
     // Act
-
+    vm.prank(helperConfig.getConfig().entryPoint);
+    uint256 missingAccountFunds = 1e18; // NOTE: this is not relevant for the validation, so we choose a random number
+    uint256 validationData = minimalAccount.validateUserOp(packedUserOp, userOpHash, missingAccountFunds);
 
     // Assert
+    assertEq(validationData, SIG_VALIDATION_SUCCESS); 
+  }
+
+  function testEntryPointCanExecuteCommands() public{
+    // Arrange
+    assertEq(usdc.balanceOf(address(minimalAccount)), 0);
+
+    // tells the AA contract to call the erc20 contract and mint
+    address dest =  address(usdc);
+    uint256 value = 0;
+    bytes memory functionData = abi.encodeWithSelector(ERC20Mock.mint.selector, address(minimalAccount), AMOUNT);
+
+    // tells the entryPoint contract to call the AA contract and make the above call
+    bytes memory executeCallData = abi.encodeWithSelector(MinimalAccount.execute.selector, dest, value, functionData);
+    PackedUserOperation memory packedUserOp = sendPackedUserOp.generateSignedUserOperation(executeCallData, helperConfig.getConfig(), address(minimalAccount));
+
+    vm.deal(address(minimalAccount), 1e18);
+
+    PackedUserOperation[] memory ops = new PackedUserOperation[](1);
+    ops[0] = packedUserOp;
+
+    // Act
+    vm.prank(randomUser); //NOTE: any alt-memepool node can submit this to the entrypoint
+    IEntryPoint(helperConfig.getConfig().entryPoint).handleOps(ops, payable(randomUser));
+
+    // Assert
+    assertEq(usdc.balanceOf(address(minimalAccount)), AMOUNT);
   }
 
 }
