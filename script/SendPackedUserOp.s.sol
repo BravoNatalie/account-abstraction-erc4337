@@ -7,7 +7,7 @@ import {IEntryPoint} from "lib/account-abstraction/contracts/interfaces/IEntryPo
 import {PackedUserOperation} from "lib/account-abstraction/contracts/interfaces/PackedUserOperation.sol";
 import {MessageHashUtils} from "@openzeppelin/contracts/utils/cryptography/MessageHashUtils.sol";
 import {IERC20} from "@openzeppelin/contracts/interfaces/IERC20.sol";
-import {MinimalAccount} from "src/ethereum/MinimalAccount.sol";
+import {AAccount} from "src/ethereum/AAccount.sol";
 import {DevOpsTools} from "lib/foundry-devops/src/DevOpsTools.sol";
 
 contract SendPackedUserOp is Script {
@@ -21,13 +21,13 @@ contract SendPackedUserOp is Script {
         HelperConfig helperConfig = new HelperConfig();
         address dest = helperConfig.getConfig().usdc; // USDC address
         uint256 value = 0;
-        address minimalAccountAddress = DevOpsTools.get_most_recent_deployment("MinimalAccount", block.chainid);
+        address aAccountAddress = DevOpsTools.get_most_recent_deployment("AAccount", block.chainid);
 
         bytes memory functionData = abi.encodeWithSelector(IERC20.approve.selector, RANDOM_APPROVER, 1e18);
         bytes memory executeCalldata =
-            abi.encodeWithSelector(MinimalAccount.execute.selector, dest, value, functionData);
+            abi.encodeWithSelector(AAccount.execute.selector, dest, value, functionData);
         PackedUserOperation memory userOp =
-            generateSignedUserOperation(executeCalldata, helperConfig.getConfig(), minimalAccountAddress);
+            generateSignedUserOperation(executeCalldata, helperConfig.getConfig(), aAccountAddress);
         PackedUserOperation[] memory ops = new PackedUserOperation[](1);
         ops[0] = userOp;
 
@@ -37,9 +37,15 @@ contract SendPackedUserOp is Script {
         vm.stopBroadcast();
   }
 
-  function generateSignedUserOperation(bytes memory callData, HelperConfig.NetworkConfig memory config, address minimalAccount) public view returns (PackedUserOperation memory) {
-    uint256 nonce = vm.getNonce(minimalAccount) - 1;
-    PackedUserOperation memory userOp = _generateUnsignedUserOperation(callData, minimalAccount, nonce);
+  function generateSignedUserOperation(bytes memory callData, HelperConfig.NetworkConfig memory config, address aAccount) public view returns (PackedUserOperation memory) {
+    //uint256 nonce = vm.getNonce(aAccount) - 1;
+    // Get the nonce for the wallet address with a key of 0
+    uint256 nonce = IEntryPoint(config.entryPoint).getNonce(
+      aAccount,
+      0
+    );
+
+    PackedUserOperation memory userOp = _generateUnsignedUserOperation(callData, aAccount, nonce);
 
     bytes32 userOpHash = IEntryPoint(config.entryPoint).getUserOpHash(userOp);
     bytes32 digest = userOpHash.toEthSignedMessageHash();

@@ -26,6 +26,23 @@ This project aims to comprehensively study and implement the ERC4337 Account Abs
 
 PS.: Foundry solidity scripts for zksync does not work 100%, therefore the `ts-scripts` was created.
 
+### Ethereum implementation
+
+The account abstraction implementation includes the following features:
+- Ownable
+- ECDSA Signature
+- Execute a sequence of transactions
+- Deposit to entry point
+- Withdraw deposit
+
+
+### ZkSync Era implementation
+
+The account abstraction implementation is straightforward with the following features:
+- Ownable
+- ECDSA Signature
+
+
 ## TODO
 - [ ] add paymaster logic
 - [ ] add spend threshold
