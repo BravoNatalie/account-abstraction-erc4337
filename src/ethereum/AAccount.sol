@@ -142,10 +142,6 @@ contract AAccount is IAccount, Ownable, TokenCallbackHandler {
     return _entryPoint;
   }
 
-  function getEntryPoint() public view returns (address) {
-    return address(_entryPoint);
-  }
-
   /**
    * Checks the balance of the AAccount within EntryPoint.
    */

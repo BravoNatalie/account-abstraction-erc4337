@@ -35,6 +35,10 @@ The account abstraction implementation includes the following features:
 - Deposit to entry point
 - Withdraw deposit
 
+[Check out the Ethereum Sepolia AA example.](https://sepolia.etherscan.io/address/0xd80377EC3a65f52c4552071dbCd540654b759Bf8)
+
+[Check out a USDC approval transaction made to the entryPoint contract.](https://sepolia.etherscan.io/tx/0xdfb9f3a8dbd9769ed58b184daf16b39be301dc5dd2adc75f20e98eb5b8d68101)
+
 
 ### ZkSync Era implementation
 

@@ -14,7 +14,7 @@ contract SendPackedUserOp is Script {
   using MessageHashUtils for bytes32;
 
   // Make sure you trust this user - don't run this on Mainnet!
-    address constant RANDOM_APPROVER = 0x9EA9b0cc1919def1A3CfAEF4F7A66eE3c36F86fC;
+  address constant RANDOM_APPROVER = 0xB2613E02F232d00bCf060c2c70A9b60d0930959A;
 
   function run() public {
     // Setup
@@ -66,7 +66,7 @@ contract SendPackedUserOp is Script {
   }
 
   function _generateUnsignedUserOperation(bytes memory callData, address sender, uint256 nonce) internal pure returns (PackedUserOperation memory) {
-    uint128 verificationGasLimit = 16777216;
+    uint128 verificationGasLimit = 106533;
     uint128 callGasLimit = verificationGasLimit;
     uint128 maxPriorityFeePerGas = 256;
     uint128 maxFeePerGas = maxPriorityFeePerGas;
